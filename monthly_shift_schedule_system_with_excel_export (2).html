@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Horarios y Cobertura de Redes (44H)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel XLSX Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .table-container {
+            max-height: 60vh;
+            overflow-x: auto;
+            overflow-y: auto;
+        }
+        th, td { white-space: nowrap; }
+        .sticky-col-1 {
+            position: sticky;
+            left: 0;
+            z-index: 25;
+            background-color: #f8fafc;
+        }
+        .sticky-col-2 {
+            position: sticky;
+            left: 170px;
+            z-index: 25;
+            background-color: #f8fafc;
+        }
+        .sticky-head-1 {
+            position: sticky;
+            left: 0;
+            z-index: 35;
+            background-color: #0f172a;
+        }
+        .sticky-head-2 {
+            position: sticky;
+            left: 170px;
+            z-index: 35;
+            background-color: #0f172a;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            .table-container { max-height: none; overflow: visible; }
+            body { background: white; padding: 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 p-3 md:p-6 min-h-screen">
+
+    <div class="max-w-[1700px] mx-auto space-y-5">
+        
+        <!-- Header & Top Navigation Bar -->
+        <header class="bg-slate-900 text-white p-5 rounded-2xl shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 border border-slate-800">
+            <div>
+                <div class="flex items-center gap-3">
+                    <div class="p-2.5 bg-indigo-600 rounded-xl shadow-inner">
+                        <i data-lucide="network" class="w-7 h-7 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold tracking-tight">Gestión de Horarios y Cobertura de Redes</h1>
+                        <p class="text-xs text-slate-400 mt-0.5">Control de jornada ordinaria de 44 hrs semanales | Mínimo 1 Especialista de Redes de Turno</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Date Selector & Action Buttons -->
+            <div class="flex flex-wrap items-center gap-3 no-print">
+                <div class="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-700 shadow-inner">
+                    <i data-lucide="calendar" class="w-4 h-4 text-indigo-400 ml-1"></i>
+                    <label for="selectYear" class="text-xs font-semibold text-slate-300">Año:</label>
+                    <input type="number" id="selectYear" value="2026" min="2024" max="2030" 
+                           class="w-20 px-2 py-1 text-sm rounded-lg bg-slate-900 text-white font-bold border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    
+                    <label for="selectMonth" class="text-xs font-semibold text-slate-300 ml-2">Mes:</label>
+                    <select id="selectMonth" class="px-2 py-1 text-sm rounded-lg bg-slate-900 text-white font-bold border border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="1">Enero</option>
+                        <option value="2">Febrero</option>
+                        <option value="3">Marzo</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Mayo</option>
+                        <option value="6">Junio</option>
+                        <option value="7">Julio</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Septiembre</option>
+                        <option value="10" selected>Octubre</option>
+                        <option value="11">Noviembre</option>
+                        <option value="12">Diciembre</option>
+                    </select>
+                </div>
+
+                <button onclick="openEmployeeModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3.5 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-xs">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    + Empleado
+                </button>
+
+                <button onclick="saveDataLocal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold px-3.5 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-xs">
+                    <i data-lucide="save" class="w-4 h-4 text-emerald-400"></i>
+                    Guardar
+                </button>
+
+                <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3.5 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-xs">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                    Excel (.xlsx)
+                </button>
+
+                <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold px-3.5 py-2 rounded-xl shadow-md transition-all flex items-center gap-2 text-xs">
+                    <i data-lucide="printer" class="w-4 h-4 text-sky-400"></i>
+                    Imprimir / PDF
+                </button>
+
+                <button onclick="resetData()" class="bg-slate-800 hover:bg-rose-900 border border-slate-700 text-rose-300 font-semibold p-2 rounded-xl shadow-md transition-all text-xs" title="Restablecer datos por defecto">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Coverage Alert Banner -->
+        <div id="alertBanner" class="p-4 rounded-xl flex items-center gap-3 text-sm font-semibold shadow-md transition-all border">
+            <!-- Populated via JS -->
+        </div>
+
+        <!-- Dashboard Summary KPI Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 no-print">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">Total Empleados</p>
+                    <p class="text-2xl font-bold text-slate-900" id="kpiTotalEmp">0</p>
+                </div>
+                <div class="p-3 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">Días del Mes</p>
+                    <p class="text-2xl font-bold text-slate-900" id="kpiTotalDays">0</p>
+                </div>
+                <div class="p-3 bg-sky-50 text-sky-600 rounded-xl">
+                    <i data-lucide="calendar-days" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">Días Sin Cobertura Redes</p>
+                    <p class="text-2xl font-bold text-slate-900" id="kpiUncoveredDays">0</p>
+                </div>
+                <div class="p-3 bg-rose-50 text-rose-600 rounded-xl" id="kpiUncoveredIconBg">
+                    <i data-lucide="shield-alert" class="w-5 h-5" id="kpiUncoveredIcon"></i>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500">Meta Mensual Base</p>
+                    <p class="text-2xl font-bold text-indigo-900" id="kpiTargetHours">196 hrs</p>
+                </div>
+                <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <i data-lucide="clock" class="w-5 h-5"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Schedule Table Container -->
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div class="table-container">
+                <table class="w-full text-xs text-left" id="scheduleTable">
+                    <thead class="text-xs uppercase bg-slate-900 text-white sticky top-0 z-30">
+                        <tr id="headerDays">
+                            <th class="p-3 sticky-head-1 min-w-[170px] border-b border-slate-800">Empleado</th>
+                            <th class="p-3 sticky-head-2 min-w-[170px] border-b border-slate-800">Área / Área</th>
+                            <!-- Dynamic Day Headers -->
+                        </tr>
+                        <tr id="headerSubDays" class="bg-slate-800 text-slate-300 font-semibold">
+                            <!-- Dynamic Day Names -->
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleBody" class="divide-y divide-slate-200">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                    <tfoot id="scheduleFoot" class="bg-slate-100 border-t-2 border-slate-300 font-bold sticky bottom-0 z-20">
+                        <!-- Dynamic Coverage Calculation Footers -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <!-- Catalog Legend & Turn Options -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i data-lucide="clock" class="w-4 h-4 text-indigo-600"></i>
+                    Catálogo de Horarios Ordinarios
+                </h3>
+                <div class="space-y-1.5 text-xs text-slate-600">
+                    <div class="flex justify-between p-1.5 bg-slate-50 rounded border"><span>08:00-17:00 (Diurna)</span> <span class="font-bold text-slate-800">8.0 hrs</span></div>
+                    <div class="flex justify-between p-1.5 bg-slate-50 rounded border"><span>08:00-12:00 (Sábado/Medio)</span> <span class="font-bold text-slate-800">4.0 hrs</span></div>
+                    <div class="flex justify-between p-1.5 bg-slate-50 rounded border"><span>13:00-22:00 (Tarde)</span> <span class="font-bold text-slate-800">8.0 hrs</span></div>
+                    <div class="flex justify-between p-1.5 bg-slate-50 rounded border"><span>06:00-15:00 (Mañana)</span> <span class="font-bold text-slate-800">8.0 hrs</span></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i data-lucide="moon" class="w-4 h-4 text-purple-600"></i>
+                    Turnos Especiales y Novedades
+                </h3>
+                <div class="space-y-1.5 text-xs text-slate-600">
+                    <div class="flex justify-between p-1.5 bg-purple-50 rounded border border-purple-200 text-purple-900"><span>18:00-06:00 (Nocturna)</span> <span class="font-bold">7.0 hrs</span></div>
+                    <div class="flex justify-between p-1.5 bg-slate-50 rounded border"><span>Libre (Descanso)</span> <span class="font-bold text-slate-500">0.0 hrs</span></div>
+                    <div class="flex justify-between p-1.5 bg-amber-50 rounded border border-amber-200 text-amber-900"><span>Vacaciones / Permiso</span> <span class="font-bold">0.0 hrs</span></div>
+                    <div class="flex justify-between p-1.5 bg-rose-50 rounded border border-rose-200 text-rose-900"><span>Incapacidad</span> <span class="font-bold">0.0 hrs</span></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <h3 class="font-bold text-slate-800 text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+                    Validaciones Automáticas
+                </h3>
+                <ul class="text-xs space-y-1.5 text-slate-600 list-disc list-inside">
+                    <li><strong>Especialistas de Redes:</strong> Requiere mínimo <strong>1 especialista</strong> de turno todos los días.</li>
+                    <li><strong>44 Horas Semanales:</strong> Para un mes de 31 días (22 días lun-vie + 5 sábados) la meta es de <strong>196 horas</strong>.</li>
+                    <li><strong>Auto-Guardado:</strong> Los cambios se guardan localmente en el navegador.</li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modal: Add New Employee -->
+    <div id="employeeModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-5 h-5 text-indigo-600"></i>
+                    Agregar Nuevo Empleado
+                </h3>
+                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Nombre Completo:</label>
+                    <input type="text" id="newEmpName" class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Ej. Mario Roberto Paz">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Área / Departamento:</label>
+                    <select id="newEmpRole" class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <option value="Especialistas de Redes">Especialistas de Redes</option>
+                        <option value="Operaciones">Operaciones</option>
+                        <option value="Activo Fijo">Activo Fijo</option>
+                        <option value="CST">CST</option>
+                        <option value="Cloud Ops">Cloud Ops</option>
+                        <option value="Atención Gestión Salas">Atención Gestión Salas</option>
+                        <option value="MEGA N1">MEGA N1</option>
+                        <option value="MEGA N2">MEGA N2</option>
+                        <option value="Auxiliares de Red">Auxiliares de Red</option>
+                        <option value="Soporte">Soporte</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t pt-3">
+                <button onclick="closeEmployeeModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                <button onclick="addEmployee()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow">Guardar Empleado</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Catalog of Shifts & Hours
+        const SHIFT_CATALOG = {
+            "08:00-17:00": 8,
+            "08:00-12:00": 4,
+            "13:00-22:00": 8,
+            "06:00-15:00": 8,
+            "18:00-06:00": 7,
+            "Libre": 0,
+            "Vacaciones": 0,
+            "Permiso": 0,
+            "Incapacidad": 0
+        };
+
+        // Preloaded Initial Staff
+        const DEFAULT_EMPLOYEES = [
+            { id: 1, name: "Carlos Mendoza", role: "Especialistas de Redes" },
+            { id: 2, name: "Ana Gutiérrez", role: "Especialistas de Redes" },
+            { id: 3, name: "Roberto Gómez", role: "Especialistas de Redes" },
+            { id: 4, name: "Sonia Henríquez", role: "Operaciones" },
+            { id: 5, name: "David López", role: "Activo Fijo" },
+            { id: 6, name: "Jorge Claros", role: "CST" },
+            { id: 7, name: "Elena Ramos", role: "Cloud Ops" },
+            { id: 8, name: "Mauricio Rivas", role: "Atención Gestión Salas" },
+            { id: 9, name: "Karla Meléndez", role: "MEGA N1" },
+            { id: 10, name: "Ricardo Flores", role: "MEGA N2" },
+            { id: 11, name: "Gabriel Vasquez", role: "Auxiliares de Red" },
+            { id: 12, name: "Laura Martínez", role: "Soporte" }
+        ];
+
+        let employees = [];
+        let shiftStore = {};
+
+        const dayNamesEs = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+        document.addEventListener("DOMContentLoaded", () => {
+            loadStoredData();
+            lucide.createIcons();
+            document.getElementById("selectYear").addEventListener("change", renderSchedule);
+            document.getElementById("selectMonth").addEventListener("change", renderSchedule);
+            renderSchedule();
+        });
+
+        function getDaysInMonth(year, month) {
+            return new Date(year, month, 0).getDate();
+        }
+
+        function loadStoredData() {
+            const savedEmp = localStorage.getItem("schedule_employees_v2");
+            const savedShifts = localStorage.getItem("schedule_shifts_v2");
+
+            if (savedEmp) {
+                employees = JSON.parse(savedEmp);
+            } else {
+                employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+            }
+
+            if (savedShifts) {
+                shiftStore = JSON.parse(savedShifts);
+            }
+        }
+
+        function saveDataLocal() {
+            localStorage.setItem("schedule_employees_v2", JSON.stringify(employees));
+            localStorage.setItem("schedule_shifts_v2", JSON.stringify(shiftStore));
+            
+            // Visual toast message
+            const banner = document.getElementById("alertBanner");
+            const originalBg = banner.className;
+            banner.className = "p-4 rounded-xl flex items-center gap-3 text-sm font-semibold shadow-md transition-all border bg-emerald-600 text-white border-emerald-700";
+            banner.innerHTML = `<i data-lucide="check" class="w-5 h-5"></i> <span>¡CAMBIOS GUARDADOS CORRECTAMENTE EN EL NAVEGADOR!</span>`;
+            lucide.createIcons();
+
+            setTimeout(() => {
+                renderSchedule();
+            }, 1500);
+        }
+
+        function resetData() {
+            if (confirm("¿Desea restablecer todos los datos a la plantilla inicial? Se borrarán los turnos modificados.")) {
+                localStorage.removeItem("schedule_employees_v2");
+                localStorage.removeItem("schedule_shifts_v2");
+                employees = JSON.parse(JSON.stringify(DEFAULT_EMPLOYEES));
+                shiftStore = {};
+                renderSchedule();
+            }
+        }
+
+        function renderSchedule() {
+            const year = parseInt(document.getElementById("selectYear").value);
+            const month = parseInt(document.getElementById("selectMonth").value);
+            const totalDays = getDaysInMonth(year, month);
+
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            
+            // Calculate base target hours (Lun-Vie 8h + Sáb 4h)
+            let baseMonthTargetHours = 0;
+            for (let d = 1; d <= totalDays; d++) {
+                const dateObj = new Date(year, month - 1, d);
+                if (dateObj.getDay() >= 1 && dateObj.getDay() <= 5) baseMonthTargetHours += 8;
+                else if (dateObj.getDay() === 6) baseMonthTargetHours += 4;
+            }
+            document.getElementById("kpiTargetHours").textContent = `${baseMonthTargetHours} hrs`;
+
+            const headerDaysTr = document.getElementById("headerDays");
+            const headerSubDaysTr = document.getElementById("headerSubDays");
+            const scheduleBody = document.getElementById("scheduleBody");
+            const scheduleFoot = document.getElementById("scheduleFoot");
+
+            // Reset headers
+            headerDaysTr.innerHTML = `
+                <th class="p-3 sticky-head-1 min-w-[170px] bg-slate-900 text-white border-b border-slate-800">Empleado</th>
+                <th class="p-3 sticky-head-2 min-w-[170px] bg-slate-900 text-white border-b border-slate-800">Área / Depto</th>
+            `;
+            headerSubDaysTr.innerHTML = `
+                <th class="p-2 sticky-col-1 bg-slate-800"></th>
+                <th class="p-2 sticky-col-2 bg-slate-800"></th>
+            `;
+
+            // Build Header Days
+            for (let day = 1; day <= totalDays; day++) {
+                const dateObj = new Date(year, month - 1, day);
+                const dayOfWeek = dayNamesEs[dateObj.getDay()];
+                const isWeekend = (dateObj.getDay() === 0 || dateObj.getDay() === 6);
+
+                const thDay = document.createElement("th");
+                thDay.className = `p-2 text-center min-w-[105px] border-l border-slate-800 ${isWeekend ? 'bg-slate-950 text-amber-300' : 'text-slate-100'}`;
+                thDay.textContent = `Día ${day}`;
+
+                const thSub = document.createElement("th");
+                thSub.className = `p-1 text-center font-semibold text-[11px] border-l border-slate-700 ${isWeekend ? 'bg-slate-900 text-amber-300' : 'text-slate-300'}`;
+                thSub.textContent = dayOfWeek;
+
+                headerDaysTr.appendChild(thDay);
+                headerSubDaysTr.appendChild(thSub);
+            }
+
+            // Summary Column Headers
+            headerDaysTr.innerHTML += `
+                <th class="p-3 bg-indigo-950 text-center min-w-[110px] text-white border-l border-indigo-800">Total Horas</th>
+                <th class="p-3 bg-slate-900 text-center min-w-[90px] text-white border-l border-slate-800">Días Libres</th>
+                <th class="p-3 bg-rose-950 text-center min-w-[70px] text-white border-l border-rose-900 no-print">Eliminar</th>
+            `;
+            headerSubDaysTr.innerHTML += `
+                <th class="p-1 bg-indigo-900 text-center font-normal text-[10px] text-indigo-200 border-l border-indigo-800">Acumulado</th>
+                <th class="p-1 bg-slate-800 text-center font-normal text-[10px] text-slate-400 border-l border-slate-700">Conteo</th>
+                <th class="p-1 bg-rose-900 text-center font-normal text-[10px] text-rose-200 border-l border-rose-800 no-print">Acción</th>
+            `;
+
+            // Build Body Rows
+            scheduleBody.innerHTML = "";
+            let dailyNetworkCount = Array(totalDays + 1).fill(0);
+
+            employees.forEach(emp => {
+                const tr = document.createElement("tr");
+                tr.className = "hover:bg-slate-50 transition-colors";
+
+                let empRowHtml = `
+                    <td class="p-2 font-semibold text-slate-900 sticky-col-1 border-r border-slate-200 shadow-sm">${emp.name}</td>
+                    <td class="p-2 text-slate-600 sticky-col-2 border-r border-slate-200 shadow-sm">
+                        <span class="px-2 py-1 rounded-md text-[10px] font-bold ${emp.role === 'Especialistas de Redes' ? 'bg-indigo-100 text-indigo-800 border border-indigo-300' : 'bg-slate-100 text-slate-700'}">
+                            ${emp.role}
+                        </span>
+                    </td>
+                `;
+
+                let empTotalHours = 0;
+                let empFreeDays = 0;
+
+                for (let day = 1; day <= totalDays; day++) {
+                    const dateObj = new Date(year, month - 1, day);
+                    const key = `${emp.id}_${year}_${month}_${day}`;
+                    
+                    // Default shift logic if unassigned
+                    if (!shiftStore[key]) {
+                        if (dateObj.getDay() === 0) {
+                            shiftStore[key] = "Libre";
+                        } else if (dateObj.getDay() === 6) {
+                            shiftStore[key] = "08:00-12:00";
+                        } else {
+                            shiftStore[key] = "08:00-17:00";
+                        }
+                    }
+
+                    const currentShift = shiftStore[key];
+                    const hours = SHIFT_CATALOG[currentShift] !== undefined ? SHIFT_CATALOG[currentShift] : 0;
+                    empTotalHours += hours;
+
+                    if (currentShift === "Libre") empFreeDays++;
+
+                    // Count Network Specialist Coverage
+                    if (emp.role === "Especialistas de Redes" && !["Libre", "Vacaciones", "Permiso", "Incapacidad"].includes(currentShift)) {
+                        dailyNetworkCount[day]++;
+                    }
+
+                    // Style shift dropdown according to value
+                    let selectBg = "bg-white text-slate-800";
+                    if (currentShift === "Libre") selectBg = "bg-slate-100 text-slate-400 font-normal";
+                    else if (currentShift === "18:00-06:00") selectBg = "bg-purple-100 text-purple-900 font-bold border-purple-300";
+                    else if (["Vacaciones", "Permiso"].includes(currentShift)) selectBg = "bg-amber-100 text-amber-900 font-semibold";
+                    else if (currentShift === "Incapacidad") selectBg = "bg-rose-100 text-rose-900 font-semibold";
+
+                    empRowHtml += `
+                        <td class="p-1 border-r border-slate-200 text-center">
+                            <select onchange="updateShift(${emp.id}, ${year}, ${month}, ${day}, this.value)" 
+                                    class="text-xs p-1 rounded-md border border-slate-300 font-mono font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none ${selectBg}">
+                                ${Object.keys(SHIFT_CATALOG).map(s => `
+                                    <option value="${s}" ${s === currentShift ? 'selected' : ''}>${s}</option>
+                                `).join('')}
+                            </select>
+                        </td>
+                    `;
+                }
+
+                // Summary cells
+                const hourTargetDiff = empTotalHours >= baseMonthTargetHours;
+
+                empRowHtml += `
+                    <td class="p-2 font-bold text-center border-l border-indigo-200 ${hourTargetDiff ? 'bg-indigo-50 text-indigo-950' : 'bg-amber-50 text-amber-900'}">
+                        ${empTotalHours} hrs
+                    </td>
+                    <td class="p-2 font-medium text-center bg-slate-50 text-slate-700 border-l border-slate-200">
+                        ${empFreeDays}
+                    </td>
+                    <td class="p-2 text-center border-l border-rose-200 no-print">
+                        <button onclick="deleteEmployee(${emp.id})" class="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors" title="Eliminar empleado">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                `;
+
+                tr.innerHTML = empRowHtml;
+                scheduleBody.appendChild(tr);
+            });
+
+            // Footer: Network Specialist Coverage Counter
+            scheduleFoot.innerHTML = "";
+            const trFoot = document.createElement("tr");
+            trFoot.className = "bg-slate-100 border-t-2 border-slate-300";
+
+            let footHtml = `
+                <td class="p-3 sticky-col-1 bg-slate-200 text-slate-900 font-bold" colspan="2">
+                    Especialistas de Redes de Turno (Mín. 1):
+                </td>
+            `;
+
+            let uncoveredCount = 0;
+
+            for (let day = 1; day <= totalDays; day++) {
+                const count = dailyNetworkCount[day];
+                const isAlert = count < 1;
+                if (isAlert) uncoveredCount++;
+
+                footHtml += `
+                    <td class="p-2 text-center border-l border-slate-300 font-bold ${isAlert ? 'bg-rose-600 text-white animate-pulse' : 'bg-emerald-100 text-emerald-900'}">
+                        ${isAlert ? `⚠️ ${count}` : `✅ ${count}`}
+                    </td>
+                `;
+            }
+
+            footHtml += `<td class="bg-slate-200 border-l border-slate-300" colspan="3"></td>`;
+            trFoot.innerHTML = footHtml;
+            scheduleFoot.appendChild(trFoot);
+
+            // Update Top Alert Banner & KPIs
+            document.getElementById("kpiTotalEmp").textContent = employees.length;
+            document.getElementById("kpiTotalDays").textContent = totalDays;
+            document.getElementById("kpiUncoveredDays").textContent = uncoveredCount;
+
+            const banner = document.getElementById("alertBanner");
+            const kpiIconBg = document.getElementById("kpiUncoveredIconBg");
+
+            if (uncoveredCount > 0) {
+                banner.className = "p-4 rounded-xl flex items-center gap-3 text-sm font-semibold shadow-md transition-all border bg-rose-50 border-rose-200 text-rose-900";
+                banner.innerHTML = `
+                    <div class="p-2 bg-rose-600 text-white rounded-lg"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                    <span>⚠️ <strong>ATENCIÓN: HAY ${uncoveredCount} DÍA(S) SIN ESPECIALISTA DE REDES EN ${monthNames[month-1].toUpperCase()} ${year}</strong>. Asegúrese de programar al menos 1 especialista cada día.</span>
+                `;
+                kpiIconBg.className = "p-3 bg-rose-100 text-rose-600 rounded-xl";
+            } else {
+                banner.className = "p-4 rounded-xl flex items-center gap-3 text-sm font-semibold shadow-md transition-all border bg-emerald-50 border-emerald-200 text-emerald-900";
+                banner.innerHTML = `
+                    <div class="p-2 bg-emerald-600 text-white rounded-lg"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+                    <span>✅ <strong>COBERTURA COMPLETA COMPROBADA:</strong> Todos los días de ${monthNames[month-1]} ${year} cuentan con al menos 1 Especialista de Redes de turno.</span>
+                `;
+                kpiIconBg.className = "p-3 bg-emerald-100 text-emerald-600 rounded-xl";
+            }
+
+            lucide.createIcons();
+        }
+
+        function updateShift(empId, year, month, day, shiftValue) {
+            const key = `${empId}_${year}_${month}_${day}`;
+            shiftStore[key] = shiftValue;
+            renderSchedule();
+        }
+
+        function openEmployeeModal() {
+            document.getElementById("employeeModal").classList.remove("hidden");
+            document.getElementById("employeeModal").classList.add("flex");
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById("employeeModal").classList.add("hidden");
+            document.getElementById("employeeModal").classList.remove("flex");
+        }
+
+        function addEmployee() {
+            const name = document.getElementById("newEmpName").value.trim();
+            const role = document.getElementById("newEmpRole").value;
+
+            if (!name) {
+                alert("Por favor ingrese el nombre del empleado.");
+                return;
+            }
+
+            const newId = Date.now();
+            employees.push({ id: newId, name: name, role: role });
+            document.getElementById("newEmpName").value = "";
+            closeEmployeeModal();
+            renderSchedule();
+        }
+
+        function deleteEmployee(id) {
+            if (confirm("¿Está seguro de eliminar este empleado del horario?")) {
+                employees = employees.filter(e => e.id !== id);
+                renderSchedule();
+            }
+        }
+
+        // Export data to Microsoft Excel (.xlsx)
+        function exportToExcel() {
+            const year = parseInt(document.getElementById("selectYear").value);
+            const month = parseInt(document.getElementById("selectMonth").value);
+            const totalDays = getDaysInMonth(year, month);
+            const monthName = document.getElementById("selectMonth").options[document.getElementById("selectMonth").selectedIndex].text;
+
+            const wb = XLSX.utils.book_new();
+            let wsData = [];
+            
+            wsData.push([`SISTEMA DE GESTIÓN DE HORARIOS Y COBERTURA DE REDES`]);
+            wsData.push([`Mes: ${monthName.toUpperCase()} ${year} | Jornada Base: 44 Horas Semanales`]);
+            wsData.push([]);
+
+            // Headers
+            let rowHeader1 = ["Empleado", "Área / Departamento"];
+            let rowHeader2 = ["", ""];
+
+            for (let day = 1; day <= totalDays; day++) {
+                const dateObj = new Date(year, month - 1, day);
+                rowHeader1.push(`Día ${day}`);
+                rowHeader2.push(dayNamesEs[dateObj.getDay()]);
+            }
+            rowHeader1.push("Total Horas Mensuales", "Días Libres");
+            rowHeader2.push("Acumulado", "Conteo");
+
+            wsData.push(rowHeader1);
+            wsData.push(rowHeader2);
+
+            let dailyCoverage = Array(totalDays + 1).fill(0);
+
+            employees.forEach(emp => {
+                let row = [emp.name, emp.role];
+                let totalHours = 0;
+                let freeDays = 0;
+
+                for (let day = 1; day <= totalDays; day++) {
+                    const key = `${emp.id}_${year}_${month}_${day}`;
+                    const shift = shiftStore[key] || "Libre";
+                    const hours = SHIFT_CATALOG[shift] !== undefined ? SHIFT_CATALOG[shift] : 0;
+                    totalHours += hours;
+
+                    if (shift === "Libre") freeDays++;
+
+                    if (emp.role === "Especialistas de Redes" && !["Libre", "Vacaciones", "Permiso", "Incapacidad"].includes(shift)) {
+                        dailyCoverage[day]++;
+                    }
+
+                    row.push(shift);
+                }
+                row.push(totalHours, freeDays);
+                wsData.push(row);
+            });
+
+            // Foot Row
+            let coverageRow = ["COBERTURA ESPECIALISTAS REDES (Min 1)", ""];
+            for (let day = 1; day <= totalDays; day++) {
+                coverageRow.push(dailyCoverage[day]);
+            }
+            coverageRow.push("", "");
+            wsData.push(coverageRow);
+
+            const wsSchedule = XLSX.utils.aoa_to_sheet(wsData);
+            wsSchedule['!cols'] = [{ wch: 24 }, { wch: 24 }];
+            for (let d = 1; d <= totalDays + 2; d++) {
+                wsSchedule['!cols'].push({ wch: 14 });
+            }
+
+            XLSX.utils.book_append_sheet(wb, wsSchedule, `Horarios_${monthName}_${year}`);
+            XLSX.writeFile(wb, `Control_Horarios_${monthName}_${year}.xlsx`);
+        }
+    </script>
+</body>
+</html>
